@@ -7,6 +7,9 @@ import type { Hexpubkey } from "../../user";
 import { NDKRelaySet } from "../../relay/sets";
 import { normalizeRelayUrl } from "../../utils/normalize-url";
 import { NDKSubscriptionCacheUsage } from "../../subscription";
+import createDebug from "debug";
+
+const debug = createDebug("ndk:RelayList");
 
 const READ_MARKER = "read";
 const WRITE_MARKER = "write";
@@ -32,6 +35,7 @@ export class NDKRelayList extends NDKEvent {
      * @returns A map of pubkeys to relay list.
      */
     static async forUsers(pubkeys: Hexpubkey[], ndk: NDK): Promise<Map<Hexpubkey, NDKRelayList>> {
+        console.log('asdf message test');
         const pool = ndk.outboxPool || ndk.pool;
         const set = new Set<NDKRelay>();
 
@@ -41,6 +45,7 @@ export class NDKRelayList extends NDKEvent {
         const fromContactList = new Map<Hexpubkey, NDKRelayList>();
 
         const relaySet = new NDKRelaySet(set, ndk);
+        debug("relayset in forusers: ", relaySet);
 
         // get all kind 10002 events from cache if we have an adapter and is locking
         if (ndk.cacheAdapter?.locking) {
