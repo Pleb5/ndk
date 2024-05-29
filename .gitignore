@@ -5,7 +5,7 @@
 !ndk-svelte-components/src/lib/
 **/.vscode
 justfile
-package-lock.json
+pnpm-lock.yaml
 **/*.js
 !.eslintrc.js
 !svelte.config.js
