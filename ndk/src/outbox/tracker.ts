@@ -64,7 +64,7 @@ export class OutboxTracker extends EventEmitter {
         });
     }
 
-    public trackUsers(items: NDKUser[] | Hexpubkey[]) {
+    public async trackUsers(items: NDKUser[] | Hexpubkey[]) {
         for (let i = 0; i < items.length; i += 400) {
             const slice = items.slice(i, i + 400);
             let pubkeys = slice
@@ -79,7 +79,7 @@ export class OutboxTracker extends EventEmitter {
                 this.data.set(pubkey, new OutboxItem("user"));
             }
 
-            NDKRelayList.forUsers(pubkeys, this.ndk).then(
+            await NDKRelayList.forUsers(pubkeys, this.ndk).then(
                 (relayLists: Map<Hexpubkey, NDKRelayList>) => {
                     for (const [pubkey, relayList] of relayLists) {
                         const outboxItem = this.data.get(pubkey)!;
