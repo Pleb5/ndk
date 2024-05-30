@@ -23,6 +23,7 @@ export enum NDKKind {
     Media = 1063,
     Report = 1984,
     Label = 1985,
+    Review = 1986,
 
     // NIP-90: Data Vending Machines
     // Text: 5000-5099
