@@ -35,7 +35,6 @@ export class NDKRelayList extends NDKEvent {
      * @returns A map of pubkeys to relay list.
      */
     static async forUsers(pubkeys: Hexpubkey[], ndk: NDK): Promise<Map<Hexpubkey, NDKRelayList>> {
-        console.log('asdf message test');
         const pool = ndk.outboxPool || ndk.pool;
         const set = new Set<NDKRelay>();
 
