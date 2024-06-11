@@ -51,7 +51,7 @@
         "@nostr-dev-kit/ndk": "workspace:*",
         "debug": "^4.3.4",
         "dexie": "^4.0.2",
-        "nostr-tools": "^2.4.0",
+        "nostr-tools": "~2.5.2",
         "typescript-lru-cache": "^2.0.0"
     }
 }
