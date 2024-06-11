@@ -107,6 +107,8 @@ export enum NDKKind {
 
     NostrConnect = 24133,
 
+    BlossomUpload = 24242,
+
     HttpAuth = 27235,
 
     ProfileBadge = 30008,

@@ -76,6 +76,10 @@ export interface NDKRelayConnectionStats {
 export class NDKRelay extends EventEmitter<{
     connect: () => void;
     ready: () => void;
+
+    /**
+     * Emitted when the relay has reached the end of stored events.
+     */
     disconnect: () => void;
     flapping: (stats: NDKRelayConnectionStats) => void;
     notice: (notice: string) => void;
@@ -166,10 +170,6 @@ export class NDKRelay extends EventEmitter<{
      */
     public async publish(event: NDKEvent, timeoutMs = 2500): Promise<boolean> {
         return this.publisher.publish(event, timeoutMs);
-    }
-
-    public async auth(event: NDKEvent): Promise<string> {
-        return this.publisher.auth(event);
     }
 
     /**

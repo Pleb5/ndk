@@ -195,9 +195,10 @@ export class NDKUser {
     /**
      * Fetch a user's profile
      * @param opts {NDKSubscriptionOptions} A set of NDKSubscriptionOptions
+     * @param storeProfileEvent {boolean} Whether to store the profile event or not
      * @returns User Profile
      */
-    public async fetchProfile(opts?: NDKSubscriptionOptions): Promise<NDKUserProfile | null> {
+    public async fetchProfile(opts?: NDKSubscriptionOptions, storeProfileEvent: boolean = false): Promise<NDKUserProfile | null> {
         if (!this.ndk) throw new Error("NDK not set");
 
         if (!this.profile) this.profile = {};
@@ -264,6 +265,11 @@ export class NDKUser {
 
         // return the most recent profile
         this.profile = profileFromEvent(sortedSetMetadataEvents[0]);
+        
+        if (storeProfileEvent) {
+            // Store the event as a stringified JSON
+            this.profile.profileEvent = JSON.stringify(sortedSetMetadataEvents[0]);
+        }
 
         if (this.profile && this.ndk.cacheAdapter && this.ndk.cacheAdapter.saveProfile) {
             this.ndk.cacheAdapter.saveProfile(this.pubkey, this.profile);
@@ -357,7 +363,7 @@ export class NDKUser {
      * Remove a follow from this user's contact list
      *
      * @param user {NDKUser} The user to unfollow
-     * @param currentFollowList {Set<Hexpubkey>} The current follow list
+     * @param currentFollowList {Set<NDKUser>} The current follow list
      * @param kind {NDKKind} The kind to use for this contact list (defaults to `3`)
      * @returns The relays were the follow list was published or false if the user wasn't found
      */
@@ -380,6 +386,7 @@ export class NDKUser {
         for (const follow of currentFollowList) {
             if (follow.pubkey !== user.pubkey) {
                 newUserFollowList.add(follow);
+            } else {
                 foundUser = true;
             }
         }
@@ -388,8 +395,8 @@ export class NDKUser {
 
         const event = new NDKEvent(this.ndk, { kind } as NostrEvent);
 
-        // This is a horrible hack and I need to fix it
-        for (const follow of currentFollowList) {
+        // Tag users from the new follow list
+        for (const follow of newUserFollowList) {
             event.tag(follow);
         }
 

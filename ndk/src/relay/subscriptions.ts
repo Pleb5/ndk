@@ -260,6 +260,7 @@ export class NDKRelaySubscriptions {
         // (it will empty the group when it runs so the race is not a problem)
         if (!timeout || subscription.opts.groupableDelayType === "at-most") {
             timeout = setTimeout(() => {
+                this.executionTimeoutsByGroupId.delete(groupableId);
                 this.executeGroup(groupableId, subscription);
             }, subscription.opts.groupableDelay);
             this.executionTimeoutsByGroupId.set(groupableId, timeout as unknown as number);
@@ -380,8 +381,8 @@ export class NDKRelaySubscriptions {
         const subId = generateSubId(subscriptions, mergedFilters);
         groupedSubscriptions.req = mergedFilters;
 
-        const subOptions: SubscriptionOptions = { 
-            id: subId, 
+        const subOptions: SubscriptionOptions = {
+            id: subId,
             onevent: (event: NostrEvent) => {
                 const e = new NDKEvent(undefined, event);
                 e.relay = this.ndkRelay;
@@ -391,10 +392,14 @@ export class NDKRelaySubscriptions {
             },
             oneose: () => {
                 const subFilters = this.activeSubscriptions.get(sub);
-                // this.debug(`Received EOSE from ${this.ndkRelay.url} for subscription ${subId}`);
                 subFilters?.eoseReceived(this.ndkRelay);
+
+                // if we are supposed to close on EOSE, close the subscription
+                if (subscriptions.every((sub) => sub.closeOnEose)) {
+                    sub.close();
+                }
             },
-            onclose: () => {}
+            onclose: () => {},
         };
 
         // TODO: Looks like nostr-tools doesn't allow skipping verification anymore

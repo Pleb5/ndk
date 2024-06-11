@@ -15,17 +15,15 @@ import { NDKSubscription } from "../subscription/index.js";
 import { filterFromId, isNip33AValue, relaysFromBech32 } from "../subscription/utils.js";
 import type { Hexpubkey, NDKUserParams, ProfilePointer } from "../user/index.js";
 import { NDKUser } from "../user/index.js";
-import { NDKKind } from "../events/kinds/index.js";
 import { fetchEventFromTag } from "./fetch-event-from-tag.js";
-import NDKList from "../events/kinds/lists/index.js";
 import { NDKAuthPolicy } from "../relay/auth-policies.js";
 import { Nip96 } from "../media/index.js";
-import { NDKRelayList } from "../events/kinds/NDKRelayList.js";
 import { NDKNwc } from "../nwc/index.js";
 import { NDKLnUrlData } from "../zap/index.js";
 import { Queue } from "./queue/index.js";
 import { signatureVerificationInit } from "../events/signature.js";
 import { NDKSubscriptionManager } from "../subscription/manager.js";
+import { setActiveUser } from "./active-user.js";
 
 export interface NDKConstructorParams {
     /**
@@ -172,9 +170,11 @@ export class NDK extends EventEmitter<{
 
     /**
      * Emitted when an event fails to publish.
-     * @param event 
+     * @param event The event that failed to publish
+     * @param error The error that caused the event to fail to publish
+     * @param relays The relays that the event was attempted to be published to
      */
-    "event:publish-failed": (event: NDKEvent, error: NDKPublishError) => void;
+    "event:publish-failed": (event: NDKEvent, error: NDKPublishError, relays: WebSocket["url"][]) => void;
 }> {
     public explicitRelayUrls?: WebSocket["url"][];
     public pool: NDKPool;
@@ -234,8 +234,8 @@ export class NDK extends EventEmitter<{
      */
     public httpFetch: typeof fetch | undefined;
 
-    private autoConnectUserRelays = true;
-    private autoFetchUserMutelist = true;
+    public autoConnectUserRelays = true;
+    public autoFetchUserMutelist = true;
 
     public constructor(opts: NDKConstructorParams = {}) {
         super();
@@ -354,80 +354,7 @@ export class NDK extends EventEmitter<{
         this._activeUser = user;
 
         if (user && differentUser) {
-            const connectToUserRelays = async (user: NDKUser) => {
-                const relayList = await NDKRelayList.forUser(user.pubkey, this);
-
-                if (!relayList) {
-                    this.debug("No relay list found for user", { npub: user.npub });
-                    return;
-                }
-
-                this.debug("Connecting to user relays", {
-                    npub: user.npub,
-                    relays: relayList.relays,
-                });
-                for (const url of relayList.relays) {
-                    let relay = this.pool.relays.get(url);
-                    if (!relay) {
-                        relay = new NDKRelay(url);
-                        this.pool.addRelay(relay);
-                    }
-                }
-            };
-
-            const fetchBlockedRelays = async (user: NDKUser) => {
-                const blockedRelays = await this.fetchEvent({
-                    kinds: [NDKKind.BlockRelayList],
-                    authors: [user.pubkey],
-                });
-
-                if (blockedRelays) {
-                    const list = NDKList.from(blockedRelays);
-
-                    for (const item of list.items) {
-                        this.pool.blacklistRelayUrls.add(item[0]);
-                    }
-                }
-
-                this.debug("Blocked relays", { blockedRelays });
-            };
-
-            const fetchUserMuteList = async (user: NDKUser) => {
-                const muteList = await this.fetchEvent({
-                    kinds: [NDKKind.MuteList],
-                    authors: [user.pubkey],
-                });
-
-                if (muteList) {
-                    const list = NDKList.from(muteList);
-
-                    for (const item of list.items) {
-                        this.mutedIds.set(item[1], item[0]);
-                    }
-                }
-            };
-
-            const userFunctions: ((user: NDKUser) => Promise<void>)[] = [fetchBlockedRelays];
-
-            if (this.autoConnectUserRelays) userFunctions.push(connectToUserRelays);
-            if (this.autoFetchUserMutelist) userFunctions.push(fetchUserMuteList);
-
-            const runUserFunctions = async (user: NDKUser) => {
-                for (const fn of userFunctions) {
-                    await fn(user);
-                }
-            };
-
-            const pool = this.outboxPool || this.pool;
-
-            if (pool.connectedRelays.length > 0) {
-                runUserFunctions(user);
-            } else {
-                this.debug("Waiting for connection to main relays");
-                pool.once("connect", () => {
-                    runUserFunctions(user);
-                });
-            }
+            setActiveUser.call(this, user);
         } else if (!user) {
             // reset mutedIds
             this.mutedIds = new Map();
@@ -518,6 +445,7 @@ export class NDK extends EventEmitter<{
         if (relaySet) {
             for (const relay of relaySet.relays) {
                 this.pool.useTemporaryRelay(relay);
+                this.debug("Adding temporary relay %s for filters %o", relay.url, filters);
             }
         }
 
@@ -533,7 +461,7 @@ export class NDK extends EventEmitter<{
         }
 
         if (autoStart) {
-            setTimeout(() => subscription.start(), 0);
+                setTimeout(() => subscription.start(), 0);
         }
 
         return subscription;
@@ -622,11 +550,21 @@ export class NDK extends EventEmitter<{
                 relaySet,
                 false
             );
+
+            /** This is a workaround, for some reason we're leaking subscriptions that should EOSE and fetchEvent is not
+             * seeing them; this is a temporary fix until we find the bug.
+             */
+            const t2 = setTimeout(() => {
+                s.stop();
+                resolve(fetchedEvent);
+            }, 10000);
+
             s.on("event", (event: NDKEvent) => {
                 event.ndk = this;
 
                 // We only emit immediately when the event is not replaceable
                 if (!event.isReplaceable()) {
+                    clearTimeout(t2);
                     resolve(event);
                 } else if (!fetchedEvent || fetchedEvent.created_at! < event.created_at!) {
                     fetchedEvent = event;
@@ -634,6 +572,7 @@ export class NDK extends EventEmitter<{
             });
 
             s.on("eose", () => {
+                clearTimeout(t2);
                 resolve(fetchedEvent);
             });
 

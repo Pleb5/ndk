@@ -118,10 +118,7 @@ export class NDKPool extends EventEmitter<{
 
         const relayUrl = relay.url;
 
-        if (isAlreadyInPool) {
-            this.debug(`Refusing to add relay ${relayUrl}: already in the pool`);
-            return;
-        }
+        if (isAlreadyInPool) return;
         if (isBlacklisted) {
             this.debug(`Refusing to add relay ${relayUrl}: blacklisted`);
             return;
@@ -149,8 +146,6 @@ export class NDKPool extends EventEmitter<{
             }
         }
 
-        this.debug(`Adding relay ${relayUrl} to the pool`);
-
         const noticeHandler = (notice: string) => this.emit("notice", relay, notice);
         const connectHandler = () => this.handleRelayConnect(relayUrl);
         const readyHandler = () => this.handleRelayReady(relay);
@@ -167,7 +162,7 @@ export class NDKPool extends EventEmitter<{
         relay.off("flapping", flappingHandler);
         relay.off("auth", authHandler);
         relay.off("authed", authedHandler);
-        
+
         // add the handlers
         relay.on("notice", noticeHandler);
         relay.on("connect", connectHandler);
@@ -253,7 +248,6 @@ export class NDKPool extends EventEmitter<{
     }
 
     private handleRelayReady(relay: NDKRelay) {
-        this.debug(`Relay ${relay.url} ready`);
         this.emit("relay:ready", relay);
     }
 

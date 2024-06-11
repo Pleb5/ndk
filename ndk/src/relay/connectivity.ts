@@ -1,7 +1,8 @@
-import { Relay } from "nostr-tools";
+import { EventTemplate, Relay, VerifiedEvent } from "nostr-tools";
 import type { NDKRelay, NDKRelayConnectionStats } from ".";
 import { NDKRelayStatus } from ".";
 import { runWithTimeout } from "../utils/timeout";
+import { NDKEvent } from "../events";
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 
@@ -28,10 +29,7 @@ export class NDKRelayConnectivity {
         this.relay.onnotice = (notice: string) => this.handleNotice(notice);
     }
 
-    public async connect(
-        timeoutMs?: number,
-        reconnect = true
-    ): Promise<void> {
+    public async connect(timeoutMs?: number, reconnect = true): Promise<void> {
         if (this.reconnectTimeout) {
             clearTimeout(this.reconnectTimeout);
             this.reconnectTimeout = undefined;
@@ -66,7 +64,13 @@ export class NDKRelayConnectivity {
             if (this.ndkRelay.authPolicy) {
                 if (this._status !== NDKRelayStatus.AUTHENTICATING) {
                     this._status = NDKRelayStatus.AUTHENTICATING;
-                    await this.ndkRelay.authPolicy(this.ndkRelay, challenge);
+                    const res = await this.ndkRelay.authPolicy(this.ndkRelay, challenge);
+
+                    if (res instanceof NDKEvent) {
+                        this.relay.auth(async (evt: EventTemplate): Promise<VerifiedEvent> => {
+                            return res.rawEvent() as VerifiedEvent;
+                        });
+                    }
 
                     if (this._status === NDKRelayStatus.AUTHENTICATING) {
                         this.debug("Authentication policy finished");
@@ -103,17 +107,20 @@ export class NDKRelayConnectivity {
         } catch (e) {
             // this.debug("Failed to connect", e);
             this._status = NDKRelayStatus.DISCONNECTED;
-            if (reconnect)
-                this.handleReconnection();
-            else
-                this.ndkRelay.emit("delayed-connect", 2 * 24 * 60 * 60 * 1000);
+            if (reconnect) this.handleReconnection();
+            else this.ndkRelay.emit("delayed-connect", 2 * 24 * 60 * 60 * 1000);
             throw e;
         }
     }
 
     public disconnect(): void {
         this._status = NDKRelayStatus.DISCONNECTING;
-        this.relay.close();
+        try {
+            this.relay.close();
+        } catch (e) {
+            this.debug("Failed to disconnect", e);
+            this._status = NDKRelayStatus.DISCONNECTED;
+        }
     }
 
     get status(): NDKRelayStatus {
