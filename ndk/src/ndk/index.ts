@@ -3,7 +3,7 @@ import { EventEmitter } from "tseep";
 
 import type { NDKCacheAdapter } from "../cache/index.js";
 import dedupEvent from "../events/dedup.js";
-import type { NDKEvent, NDKEventId, NDKTag } from "../events/index.js";
+import { NDKEvent, NDKEventId, NDKTag } from "../events/index.js";
 import { OutboxTracker } from "../outbox/tracker.js";
 import { NDKRelay } from "../relay/index.js";
 import { NDKPool } from "../relay/pool/index.js";
@@ -19,7 +19,7 @@ import { fetchEventFromTag } from "./fetch-event-from-tag.js";
 import { NDKAuthPolicy } from "../relay/auth-policies.js";
 import { Nip96 } from "../media/index.js";
 import { NDKNwc } from "../nwc/index.js";
-import { NDKLnUrlData } from "../zap/index.js";
+import { NDKLnUrlData, NDKZap, ZapConstructorParams } from "../zap/index.js";
 import { Queue } from "./queue/index.js";
 import { signatureVerificationInit } from "../events/signature.js";
 import { NDKSubscriptionManager } from "../subscription/manager.js";
@@ -139,7 +139,7 @@ export interface GetUserParams extends NDKUserParams {
     hexpubkey?: string;
 }
 
-export const DEFAULT_OUTBOX_RELAYS = ["wss://purplepag.es/", "wss://profiles.nos.social/"];
+export const DEFAULT_OUTBOX_RELAYS = ["wss://purplepag.es/", "wss://nos.lol/"];
 
 /**
  * TODO: Move this to a outbox policy
@@ -174,7 +174,11 @@ export class NDK extends EventEmitter<{
      * @param error The error that caused the event to fail to publish
      * @param relays The relays that the event was attempted to be published to
      */
-    "event:publish-failed": (event: NDKEvent, error: NDKPublishError, relays: WebSocket["url"][]) => void;
+    "event:publish-failed": (
+        event: NDKEvent,
+        error: NDKPublishError,
+        relays: WebSocket["url"][]
+    ) => void;
 }> {
     public explicitRelayUrls?: WebSocket["url"][];
     public pool: NDKPool;
@@ -461,7 +465,7 @@ export class NDK extends EventEmitter<{
         }
 
         if (autoStart) {
-                setTimeout(() => subscription.start(), 0);
+            setTimeout(() => subscription.start(), 0);
         }
 
         return subscription;
@@ -487,9 +491,12 @@ export class NDK extends EventEmitter<{
     }
 
     /**
-     * Fetches event following a tag
-     * @param tag
-     * @param subOpts
+     * Attempts to fetch an event from a tag, following relay hints and
+     * other best practices.
+     * @param tag Tag to fetch the event from
+     * @param originalEvent Event where the tag came from
+     * @param subOpts Subscription options to use when fetching the event
+     * @param fallback Fallback options to use when the hint relay doesn't respond
      * @returns
      */
     public fetchEventFromTag = fetchEventFromTag.bind(this);
@@ -502,11 +509,11 @@ export class NDK extends EventEmitter<{
      * @param relaySetOrRelay explicit relay set to use
      */
     public async fetchEvent(
-        idOrFilter: string | NDKFilter,
+        idOrFilter: string | NDKFilter | NDKFilter[],
         opts?: NDKSubscriptionOptions,
         relaySetOrRelay?: NDKRelaySet | NDKRelay
     ): Promise<NDKEvent | null> {
-        let filter: NDKFilter;
+        let filters: NDKFilter[];
         let relaySet: NDKRelaySet | undefined;
 
         // Check if this relaySetOrRelay is an NDKRelay, if it is, make it a relaySet
@@ -532,12 +539,14 @@ export class NDK extends EventEmitter<{
         }
 
         if (typeof idOrFilter === "string") {
-            filter = filterFromId(idOrFilter);
+            filters = [filterFromId(idOrFilter)];
+        } else if (Array.isArray(idOrFilter)) {
+            filters = idOrFilter;
         } else {
-            filter = idOrFilter;
+            filters = [idOrFilter];
         }
 
-        if (!filter) {
+        if (filters.length === 0) {
             throw new Error(`Invalid filter: ${JSON.stringify(idOrFilter)}`);
         }
 
@@ -545,7 +554,7 @@ export class NDK extends EventEmitter<{
             let fetchedEvent: NDKEvent | null = null;
 
             const s = this.subscribe(
-                filter,
+                filters,
                 { ...(opts || {}), closeOnEose: true },
                 relaySet,
                 false
@@ -662,5 +671,41 @@ export class NDK extends EventEmitter<{
             await nwc.blockUntilReady(connectTimeout);
         }
         return nwc;
+    }
+
+    /**
+     * Create a zap request for an existing event
+     *
+     * @param amount The amount to zap in millisatoshis
+     * @param comment A comment to add to the zap request
+     * @param extraTags Extra tags to add to the zap request
+     * @param recipient The zap recipient (optional for events)
+     * @param signer The signer to use (will default to the NDK instance's signer)
+     */
+    public async zap(
+        eventOrUser: NDKEvent | NDKUser,
+        amount: number,
+        comment?: string,
+        extraTags?: NDKTag[],
+        recipient?: NDKUser,
+        signer?: NDKSigner
+    ): Promise<string | null> {
+        if (!signer) {
+            this.assertSigner();
+        }
+
+        let zapOpts: ZapConstructorParams;
+
+        if (eventOrUser instanceof NDKEvent) {
+            zapOpts = { ndk: this, zappedUser: eventOrUser.author, zappedEvent: eventOrUser };
+        } else if (eventOrUser instanceof NDKUser) {
+            zapOpts = { ndk: this, zappedUser: eventOrUser };
+        } else {
+            throw new Error("Invalid recipient");
+        }
+
+        const zap = new NDKZap(zapOpts);
+
+        return zap.createZapRequest(amount, comment, extraTags, undefined, signer);
     }
 }

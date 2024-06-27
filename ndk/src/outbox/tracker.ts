@@ -2,6 +2,7 @@ import { EventEmitter } from "tseep";
 import { LRUCache } from "typescript-lru-cache";
 
 import { NDKRelayList } from "../events/kinds/NDKRelayList.js";
+import { getRelayListForUsers } from "../utils/get-users-relay-list.js";
 import type { NDK } from "../ndk/index.js";
 import type { Hexpubkey } from "../user/index.js";
 import { NDKUser } from "../user/index.js";
@@ -64,7 +65,17 @@ export class OutboxTracker extends EventEmitter {
         });
     }
 
-    public async trackUsers(items: NDKUser[] | Hexpubkey[]) {
+    /**
+     * Adds a list of users to the tracker.
+     * @param items 
+     * @param skipCache 
+     */
+    async trackUsers(
+        items: NDKUser[] | Hexpubkey[],
+        skipCache = false,
+    ) {
+        const promises: Promise<void>[] = [];
+
         for (let i = 0; i < items.length; i += 400) {
             const slice = items.slice(i, i + 400);
             let pubkeys = slice
@@ -79,45 +90,51 @@ export class OutboxTracker extends EventEmitter {
                 this.data.set(pubkey, new OutboxItem("user"));
             }
 
-            await NDKRelayList.forUsers(pubkeys, this.ndk).then(
-                (relayLists: Map<Hexpubkey, NDKRelayList>) => {
-                    for (const [pubkey, relayList] of relayLists) {
-                        const outboxItem = this.data.get(pubkey)!;
+            promises.push(new Promise((resolve) => {
+                getRelayListForUsers(pubkeys, this.ndk, skipCache).then(
+                    (relayLists: Map<Hexpubkey, NDKRelayList>) => {
+                        for (const [pubkey, relayList] of relayLists) {
+                            let outboxItem = this.data.get(pubkey)!;
+                            outboxItem ??= new OutboxItem("user");
 
-                        if (relayList) {
-                            outboxItem.readRelays = new Set(normalize(relayList.readRelayUrls));
-                            outboxItem.writeRelays = new Set(normalize(relayList.writeRelayUrls));
+                            if (relayList) {
+                                outboxItem.readRelays = new Set(normalize(relayList.readRelayUrls));
+                                outboxItem.writeRelays = new Set(normalize(relayList.writeRelayUrls));
 
-                            // remove all blacklisted relays
-                            for (const relayUrl of outboxItem.readRelays) {
-                                if (this.ndk.pool.blacklistRelayUrls.has(relayUrl)) {
-                                    // this.debug(
-                                    //     `removing blacklisted relay ${relayUrl} from read relays`
-                                    // );
-                                    outboxItem.readRelays.delete(relayUrl);
+                                // remove all blacklisted relays
+                                for (const relayUrl of outboxItem.readRelays) {
+                                    if (this.ndk.pool.blacklistRelayUrls.has(relayUrl)) {
+                                        // this.debug(
+                                        //     `removing blacklisted relay ${relayUrl} from read relays`
+                                        // );
+                                        outboxItem.readRelays.delete(relayUrl);
+                                    }
                                 }
-                            }
 
-                            // remove all blacklisted relays
-                            for (const relayUrl of outboxItem.writeRelays) {
-                                if (this.ndk.pool.blacklistRelayUrls.has(relayUrl)) {
-                                    // this.debug(
-                                    //     `removing blacklisted relay ${relayUrl} from write relays`
-                                    // );
-                                    outboxItem.writeRelays.delete(relayUrl);
+                                // remove all blacklisted relays
+                                for (const relayUrl of outboxItem.writeRelays) {
+                                    if (this.ndk.pool.blacklistRelayUrls.has(relayUrl)) {
+                                        // this.debug(
+                                        //     `removing blacklisted relay ${relayUrl} from write relays`
+                                        // );
+                                        outboxItem.writeRelays.delete(relayUrl);
+                                    }
                                 }
+
+                                this.data.set(pubkey, outboxItem);
+
+                                // this.debug(
+                                //     `Adding ${outboxItem.readRelays.size} read relays and ${outboxItem.writeRelays.size} write relays for ${pubkey}, %o`, relayList?.rawEvent()
+                                // );
                             }
-
-                            this.data.set(pubkey, outboxItem);
-
-                            // this.debug(
-                            //     `Adding ${outboxItem.readRelays.size} read relays and ${outboxItem.writeRelays.size} write relays for ${user.pubkey}`
-                            // );
                         }
                     }
-                }
-            );
+                )
+                .finally(resolve);
+            }));
         }
+
+        return Promise.all(promises);
     }
 
     /**
@@ -125,7 +142,7 @@ export class OutboxTracker extends EventEmitter {
      * @param key
      * @param score
      */
-    public track(item: NDKUser | Hexpubkey, type?: OutboxItemType): OutboxItem {
+    public track(item: NDKUser | Hexpubkey, type?: OutboxItemType, skipCache = true): OutboxItem {
         const key = getKeyFromItem(item);
         type ??= getTypeFromItem(item);
         let outboxItem = this.data.get(key);
