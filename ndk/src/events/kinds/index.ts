@@ -104,6 +104,10 @@ export enum NDKKind {
     HighlightSet = 39802,
     CategorizedHighlightList = NDKKind.HighlightSet, // Deprecated but left for backwards compatibility
 
+    // Troubleshooting
+    TroubleshootTicket = 32767,
+    TroubleshootOffer = 32768,
+
     ZapRequest = 9734,
     Zap = 9735,
     Highlight = 9802,
