@@ -92,7 +92,8 @@ export class NDKNip46Signer extends EventEmitter implements NDKSigner {
             } else {
                 remotePubkey = parts[0];
             }
-            token = parts[1];
+            // hack to be able to pass multiple params separated with #
+            token = tokenOrRemoteUser;
         } else if (tokenOrRemoteUser.startsWith("npub")) {
             remotePubkey = new NDKUser({
                 npub: tokenOrRemoteUser,
@@ -160,11 +161,12 @@ export class NDKNip46Signer extends EventEmitter implements NDKSigner {
         });
 
         return new Promise((resolve, reject) => {
-            const connectParams = [this.remotePubkey!];
-
+            let connectParams:string[] = [];
             if (this.token) {
-                connectParams.push(this.token);
+                connectParams = this.token.split('#') as string[];
             }
+            this.debug('token: ', this.token)
+            this.debug('connect params: ', connectParams)
 
             this.rpc.sendRequest(
                 this.remotePubkey!,
