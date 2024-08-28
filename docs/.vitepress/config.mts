@@ -1,10 +1,12 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from "vitepress-plugin-mermaid";
 
 // https://vitepress.dev/reference/site-config
-export default defineConfig({
+export default withMermaid(defineConfig({
   title: "NDK",
   description: "NDK Docs",
   base: "/ndk/",
+  ignoreDeadLinks: true,
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     nav: [
@@ -28,6 +30,7 @@ export default defineConfig({
           { text: 'Local-first', link: '/tutorial/local-first' },
           { text: 'Publishing', link: '/tutorial/publishing' },
           { text: "Subscription Management", link: '/tutorial/subscription-management' },
+          { text: "Speed", link: '/tutorial/speed' },
         ]
       },
       {
@@ -43,10 +46,16 @@ export default defineConfig({
           { text: 'NDK Svelte', link: '/wrappers/svelte' },
         ]
       },
+      {
+        text: "Internals",
+        items: [
+          { text: "Subscription Lifecycle", link: '/internals/subscriptions' },
+        ]
+      }
     ],
 
     socialLinks: [
       { icon: 'github', link: 'https://github.com/nostr-dev-kit/ndk' }
     ]
   }
-})
+}))

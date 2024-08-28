@@ -6,4 +6,5 @@ packages:
     - "ndk-cache-nostr"
     - "ndk-svelte"
     - "ndk-svelte-components"
+    - "ndk-wallet"
     - "demos"

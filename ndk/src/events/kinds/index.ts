@@ -55,11 +55,16 @@ export enum NDKKind {
     Unsubscribe = 7002,
     SubscriptionReceipt = 7003,
 
+    CashuToken = 7375,
+    WalletChange = 7376,
+
     // NIP-29
     GroupAdminAddUser = 9000,
     GroupAdminRemoveUser = 9001,
     GroupAdminEditMetadata = 9002,
     GroupAdminEditStatus = 9006,
+    GroupAdminCreateGroup = 9007,
+    GroupAdminRequestJoin = 9021,
 
     // Lists and Sets
     MuteList = 10000,
@@ -72,6 +77,7 @@ export enum NDKKind {
     SearchRelayList = 10007,
     SimpleGroupList = 10009,
     InterestList = 10015,
+    CashuMintList = 10019,
     EmojiList = 10030,
 
     BlossomList = 10063,
@@ -101,12 +107,17 @@ export enum NDKKind {
     Wiki = 30818,
     Draft = 31234,
     SubscriptionTier = 37001,
+
+    EcashMintRecommendation = 38000,
+
     HighlightSet = 39802,
     CategorizedHighlightList = NDKKind.HighlightSet, // Deprecated but left for backwards compatibility
 
     // Troubleshooting
     TroubleshootTicket = 32767,
     TroubleshootOffer = 32768,
+
+    Nutzap = 9321,
 
     ZapRequest = 9734,
     Zap = 9735,
@@ -130,8 +141,13 @@ export enum NDKKind {
     AppSpecificData = 30078,
     Classified = 30402,
     HorizontalVideo = 34235,
+    VerticalVideo = 34236,
+
+    CashuWallet = 37375,
+
 
     GroupMetadata = 39000, // NIP-29
+    GroupAdmins = 39001, // NIP-29
     GroupMembers = 39002, // NIP-29
 
     // NIP-89: App Metadata
