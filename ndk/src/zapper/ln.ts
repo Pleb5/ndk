@@ -48,7 +48,7 @@ export type NDKLnUrlData = {
 };
 
 export async function getNip57ZapSpecFromLud(
-    { lud06, lud16 }: { lud06?: string; lud16?: string },
+    { lud06, lud16 }: { lud06?: `${string}1${string}`; lud16?: string },
     ndk: NDK
 ): Promise<NDKLnUrlData | undefined> {
     let zapEndpoint: string | undefined;

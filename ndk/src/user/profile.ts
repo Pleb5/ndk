@@ -12,7 +12,7 @@ export interface NDKUserProfile {
     banner?: string;
     bio?: string;
     nip05?: string;
-    lud06?: string;
+    lud06?: `${string}1${string}`;
     lud16?: string;
     about?: string;
     zapService?: string;

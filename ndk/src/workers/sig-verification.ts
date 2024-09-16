@@ -22,7 +22,7 @@ globalThis.onmessage = (msg: MessageEvent) => {
             return;
         }
 
-        const result = schnorr.verify(sig as string, buffer, pubkey);
+        const result = schnorr.verify(sig as string, idHash, pubkey);
         postMessage([id, result]);
     });
 };
