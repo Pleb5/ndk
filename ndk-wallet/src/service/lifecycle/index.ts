@@ -1,36 +1,40 @@
 import type {
     NDKEvent,
     NDKEventId,
+    NDKFilter,
     NDKRelay,
     NDKSubscription,
-    NDKUser} from "@nostr-dev-kit/ndk";
+    NDKUser,
+} from "@nostr-dev-kit/ndk";
 import type NDK from "@nostr-dev-kit/ndk";
 import {
     getRelayListForUser,
     NDKCashuMintList,
     NDKKind,
     NDKRelaySet,
-    NDKSubscriptionCacheUsage
+    NDKSubscriptionCacheUsage,
 } from "@nostr-dev-kit/ndk";
-import type NDKWallet from "../index.js";
 import handleMintList from "./mint-list.js";
 import handleWalletEvent from "./wallet.js";
 import handleTokenEvent from "./token.js";
 import handleEventDeletion from "./deletion.js";
-import type { NDKCashuWallet} from "../../cashu/wallet.js";
+import type { NDKCashuWallet } from "../../cashu/wallet.js";
 import type { NDKCashuToken } from "../../cashu/token.js";
 import createDebug from "debug";
 import { NDKWalletChange } from "../../cashu/history.js";
-import NutzapHandler from "./nutzap.js";
-import { NDKWalletStatus } from "../../wallet/index.js";
-import NDKWalletService from "../index.js";
+import { EventEmitter } from "tseep";
+import { NDKWallet } from "../../wallet/index.js";
 
 /**
  * This class is responsible for managing the lifecycle of a user wallets.
  * It fetches the user wallets, tokens and nutzaps and keeps them up to date.
  */
-class NDKWalletLifecycle {
-    public service: NDKWalletService;
+class NDKWalletLifecycle extends EventEmitter<{
+    "wallet:default": (wallet: NDKWallet) => void;
+    "mintlist:ready": (mintList: NDKCashuMintList) => void;
+    wallet: (wallet: NDKWallet) => void;
+    ready: () => void;
+}> {
     private sub: NDKSubscription | undefined;
     public eosed = false;
     public ndk: NDK;
@@ -46,25 +50,36 @@ class NDKWalletLifecycle {
     public debug = createDebug("ndk-wallet:lifecycle");
     public state: "loading" | "ready" = "loading";
 
-    public nutzap: NutzapHandler;
-
-    constructor(service: NDKWalletService, ndk: NDK, user: NDKUser) {
-        this.service = service;
+    constructor(ndk: NDK, user: NDKUser) {
+        super();
         this.ndk = ndk;
         this.user = user;
-        this.nutzap = new NutzapHandler(this);
     }
 
+    /**
+     * Check for wallets
+     */
     async start() {
         const userRelayList = await getRelayListForUser(this.user.pubkey, this.ndk);
+        const filters: NDKFilter[] = [
+            {
+                kinds: [NDKKind.CashuMintList, NDKKind.CashuWallet],
+                authors: [this.user.pubkey],
+            },
+            { kinds: [NDKKind.WalletChange], authors: [this.user!.pubkey], limit: 10 },
+        ];
+
+        // if we have a clientName, also get NIP-78 AppSpecificData
+        if (this.ndk.clientName) {
+            filters.push({
+                kinds: [NDKKind.AppSpecificData],
+                authors: [this.user.pubkey],
+                "#d": [this.ndk.clientName],
+            });
+        }
+
         this.sub = this.ndk.subscribe(
-            [
-                {
-                    kinds: [NDKKind.CashuMintList, NDKKind.CashuWallet],
-                    authors: [this.user.pubkey],
-                },
-                { kinds: [NDKKind.WalletChange], authors: [this.user!.pubkey], limit: 10 },
-            ],
+            filters,
             {
                 subId: "ndk-wallet",
                 groupable: false,
@@ -94,29 +109,23 @@ class NDKWalletLifecycle {
             case NDKKind.EventDeletion:
                 handleEventDeletion.bind(this, event).call(this);
                 break;
-            case NDKKind.Nutzap:
-                this.nutzap.addNutzap(event);
+            // case NDKKind.Nutzap:
+            //     this.nutzap.addNutzap(event);
+            //     break;
+            // case NDKKind.WalletChange:
+            //     NDKWalletChange.from(event).then((wc) => {
+            //         if (wc) {
+            //             this.nutzap.addWalletChange(wc);
+            //         }
+            //     });
+            case NDKKind.AppSpecificData:
+                // handleAppSpecificData.bind(this, event, relay).call(this);
                 break;
-            case NDKKind.WalletChange:
-                NDKWalletChange.from(event).then((wc) => {
-                    if (wc) {
-                        this.nutzap.addWalletChange(wc);
-                    }
-                });
         }
     }
 
     private eoseHandler() {
-        this.debug("Loaded wallets", {
-            defaultWallet: this.defaultWallet?.event?.rawEvent(),
-            wallets: Array.from(this.wallets.values()).map((w) => w.event?.rawEvent()),
-        });
         this.eosed = true;
-
-        if (this.tokensSub) {
-            this.debug("WE ALREADY HAVE TOKENS SUB!!!");
-            return;
-        }
 
         // if we don't have a default wallet, choose the first one if there is one
         const firstWallet = Array.from(this.wallets.values())[0];
@@ -139,28 +148,24 @@ class NDKWalletLifecycle {
         for (const wallet of this.wallets.values()) {
             if (!oldestWalletTimestamp || wallet.event.created_at! > oldestWalletTimestamp) {
                 oldestWalletTimestamp = wallet.event.created_at!;
-                this.debug("oldest wallet timestamp", oldestWalletTimestamp);
             }
 
-            this.service.wallets.push(wallet)
-            this.service.emit("wallet", wallet);
+            this.emit("wallet", wallet);
         }
-
-        this.debug("oldest wallet timestamp", oldestWalletTimestamp, this.wallets.values());
 
         this.tokensSub = this.ndk.subscribe(
             [
                 { kinds: [NDKKind.CashuToken], authors: [this.user!.pubkey] },
                 { kinds: [NDKKind.EventDeletion], authors: [this.user!.pubkey], limit: 0 },
                 { kinds: [NDKKind.WalletChange], authors: [this.user!.pubkey] },
-                {
-                    kinds: [NDKKind.Nutzap],
-                    "#p": [this.user!.pubkey],
-                    since: oldestWalletTimestamp,
-                },
+                // {
+                //     kinds: [NDKKind.Nutzap],
+                //     "#p": [this.user!.pubkey],
+                //     since: oldestWalletTimestamp,
+                // },
             ],
             {
-                subId: "ndk-wallet-tokens2",
+                subId: "ndk-wallet-tokens",
                 groupable: false,
                 cacheUsage: NDKSubscriptionCacheUsage.ONLY_RELAY,
             },
@@ -174,24 +179,17 @@ class NDKWalletLifecycle {
 
     private tokensSubEose() {
         this.state = "ready";
-        console.log("EMITTING READY");
         this.tokensSubEosed = true;
-        this.service.emit("ready");
+        this.emit("ready");
 
-        this.nutzap.eosed().then(() => {
-            // once we finish processing nutzaps
-            // we can update the wallet's cached balance
-            for (const wallet of this.wallets.values()) {
-                wallet.status = NDKWalletStatus.READY;
-                wallet.updateBalance();
-            }
-        });
-    }
-
-    // private handleMintList = handleMintList.bind
-
-    public emit(event: string, ...args: any[]) {
-        this.service.emit(event as unknown as any, ...args);
+        // this.nutzap.eosed().then(() => {
+        //     // once we finish processing nutzaps
+        //     // we can update the wallet's cached balance
+        //     for (const wallet of this.wallets.values()) {
+        //         wallet.status = NDKWalletStatus.READY;
+        //         wallet.updateBalance();
+        //     }
+        // });
     }
 
     // Sets the default wallet as seen by the mint list
