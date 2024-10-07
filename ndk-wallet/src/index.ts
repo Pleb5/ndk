@@ -1,5 +1,6 @@
 import NDKWalletService from "./service/index.js";
 
+export * from "./service/nutzap-monitor";
 export * from "./wallet/index.js";
 
 export * from "./cashu/wallet.js";

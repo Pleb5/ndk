@@ -97,7 +97,7 @@ class NDKWalletService extends EventEmitter<{
         // todo: check NIP-78 configuration for webln/nwc/nip-61 settings
         this.lifecycle = new NDKWalletLifecycle(this.ndk, user ?? this.ndk.activeUser!);
         this.lifecycle.on("mintlist:ready", (mintList: NDKCashuMintList) => {
-            this.startNutzapMonitor(mintList);
+            // this.startNutzapMonitor(mintList);
         });
 
         this.lifecycle.on("wallet:default", (wallet: NDKWallet) => {

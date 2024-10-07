@@ -1,17 +1,11 @@
-import NDK, {
-    NDKEvent,
-    type NDKEventId,
-    NDKKind,
-    NDKNutzap,
-    NDKRelaySet,
-    NDKSubscription,
-    NDKSubscriptionCacheUsage,
-    NDKUser,
-} from "@nostr-dev-kit/ndk";
+import type { NDKEvent, NDKRelaySet, NDKSubscription, NDKUser } from "@nostr-dev-kit/ndk";
+import type NDK from "@nostr-dev-kit/ndk";
+import { type NDKEventId, NDKKind, NDKNutzap, NDKSubscriptionCacheUsage } from "@nostr-dev-kit/ndk";
 import { CashuMint, CashuWallet } from "@cashu/cashu-ts";
 import { EventEmitter } from "tseep";
 import createDebug from "debug";
-import { NDKCashuWallet } from "../../cashu/wallet";
+import type { NDKCashuWallet } from "../../cashu/wallet";
+import type { MintUrl } from "../../cashu/mint/utils";
 
 const d = createDebug("ndk-wallet:nutzap-monitor");
 
@@ -60,7 +54,7 @@ export class NutzapMonitor extends EventEmitter<{
         const p2pk = wallet.p2pk;
         if (p2pk) {
             d("adding wallet with p2pk %o", p2pk);
-            this.walletByP2pk.set(p2pk, wallet);
+            this.walletByP2pk.set(p2pk.slice(0, -1), wallet);
         }
     }
 
@@ -101,7 +95,7 @@ export class NutzapMonitor extends EventEmitter<{
 
     private eoseHandler() {
         this.eosed = true;
-        this.processQueue();
+        // this.processQueue();
     }
 
     private async eventHandler(event: NDKEvent) {
@@ -111,11 +105,13 @@ export class NutzapMonitor extends EventEmitter<{
         if (!nutzapEvent) return;
         this.emit("seen", nutzapEvent);
 
-        if (!this.eosed) {
-            this.pushToRedeemQueue(nutzapEvent);
-        } else {
-            this.redeem(nutzapEvent);
-        }
+        // if (!this.eosed) {
+        //     this.pushToRedeemQueue(nutzapEvent);
+        // } else {
+        //     this.redeem(nutzapEvent);
+        // }
+
+        this.redeem(nutzapEvent);
     }
 
     private pushToRedeemQueue(event: NDKEvent) {
@@ -150,28 +146,32 @@ export class NutzapMonitor extends EventEmitter<{
                         privkey: wallet.privkey,
                     }
                 );
-                d("redeemed nutzap %o", nutzap.rawEvent());
-                this.lifecycle.emit("nutzap:redeemed", nutzap);
+                d("redeemed nutzap %o", nutzap.rawEvent(), res);
+                // this.lifecycle.emit("nutzap:redeemed", nutzap);
 
                 // save new proofs in wallet
                 wallet.saveProofs(res, mint, nutzap);
             } catch (e: any) {
-                console.error(e.message);
-                this.lifecycle.emit("nutzap:failed", nutzap, e.message);
+                d("error in receiveTokenEntry", e);
+                // console.error(e.message);
+                // this.lifecycle.emit("nutzap:failed", nutzap, e.message);
             }
         } catch (e) {
-            console.trace(e);
-            this.lifecycle.emit("nutzap:failed", nutzap, e);
+            d("error in redeem", e);
+            // console.trace(e);
+            // this.lifecycle.emit("nutzap:failed", nutzap, e);
         }
     }
 
     private findWalletForNutzap(nutzap: NDKNutzap): NDKCashuWallet | undefined {
         const p2pk = nutzap.p2pk;
-        let wallet: NDKCashuWallet | undefined;
+        // let wallet: NDKCashuWallet | undefined;
 
-        if (p2pk) wallet = this.lifecycle.walletsByP2pk.get(p2pk);
+        // if (p2pk) wallet = this.lifecycle.walletsByP2pk.get(p2pk);
 
-        return wallet ?? this.lifecycle.defaultWallet;
+        // return wallet ?? this.lifecycle.defaultWallet;
+
+        if (p2pk) return this.walletByP2pk.get(p2pk);
     }
 
     private cashuWallets: Map<string, CashuWallet> = new Map();
