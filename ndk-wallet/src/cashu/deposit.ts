@@ -5,7 +5,7 @@ import { EventEmitter } from "tseep";
 import { NDKCashuToken } from "./token";
 import createDebug from "debug";
 import { NDKEvent, NDKKind, NDKTag, NostrEvent } from "@nostr-dev-kit/ndk";
-import { getBolt11ExpiresAt } from "../lib/ln";
+// import { getBolt11ExpiresAt } from "../lib/ln";
 
 const d = createDebug("ndk-wallet:cashu:deposit");
 
@@ -56,14 +56,14 @@ export class NDKCashuDeposit extends EventEmitter<{
      */
     private async createQuoteEvent(quoteId: string, bolt11: string) {
         const { ndk } = this.wallet;
-        const bolt11Expiry = getBolt11ExpiresAt(bolt11);
+        // const bolt11Expiry = getBolt11ExpiresAt(bolt11);
         let tags: NDKTag[] = [
             ["a", this.wallet.tagId()],
             ["mint", this.mint],
         ];
 
         // if we have a bolt11 expiry, expire this event at that time
-        if (bolt11Expiry) tags.push(["expiration", bolt11Expiry.toString()]);
+        // if (bolt11Expiry) tags.push(["expiration", bolt11Expiry.toString()]);
 
         const event = new NDKEvent(ndk, {
             kind: NDKKind.CashuQuote,
