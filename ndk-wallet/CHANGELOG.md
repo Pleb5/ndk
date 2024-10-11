@@ -1,5 +1,17 @@
 # @nostr-dev-kit/ndk-cache-redis
 
+## 0.3.2
+
+### Patch Changes
+
+-   bump
+
+## 0.3.1
+
+### Patch Changes
+
+-   publish wallet change events
+
 ## 0.3.0
 
 ### Minor Changes
