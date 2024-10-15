@@ -74,7 +74,7 @@ export class NDKPrivateKeySigner implements NDKSigner {
         }
 
         const recipientHexPubKey = recipient.pubkey;
-        return nip44.getConversationKey(this._privateKey, recipientHexPubKey);
+        return nip44.v2.utils.getConversationKey(this._privateKey, recipientHexPubKey);
     }
 
     public async nip44Encrypt(recipient: NDKUser, value: string): Promise<string> {
