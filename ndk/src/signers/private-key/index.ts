@@ -79,12 +79,12 @@ export class NDKPrivateKeySigner implements NDKSigner {
 
     public async nip44Encrypt(recipient: NDKUser, value: string): Promise<string> {
         const conversationKey = this.getConversationKey(recipient);
-        return await nip44.encrypt(value, conversationKey);
+        return await nip44.v2.encrypt(value, conversationKey);
     }
 
     public async nip44Decrypt(sender: NDKUser, value: string): Promise<string> {
         const conversationKey = this.getConversationKey(sender);
-        return await nip44.decrypt(value, conversationKey);
+        return await nip44.v2.decrypt(value, conversationKey);
     }
 
     /**
