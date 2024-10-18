@@ -112,7 +112,10 @@ async function attemptPaymentWithEligibleMints(
     for (const selection of selections) {
         try {
             const result = await executePayment(selection, pr, wallet, debug);
-            if (result) {
+            // NOTE: for some mints payment is executed properly but preimage is a blank string.
+            // So, temporarily I'm checking if result != null
+            // I noticed this issues in https://mint.minibits.cash/Bitcoin
+            if (result !== null) {
                 resolve(result);
                 return;
             }
@@ -174,7 +177,7 @@ async function executePayment(
         }
 
         // generate history event
-        if (result.isPaid && result.preimage) {
+        if (result.isPaid) {
             debug("Payment successful");
             const { destroyedTokens, createdToken } = await rollOverProofs(selection, result.change, selection.mint, wallet);
             const historyEvent = new NDKWalletChange(wallet.ndk);
@@ -183,7 +186,7 @@ async function executePayment(
             historyEvent.tag(wallet.event);
             historyEvent.direction = 'out';
             historyEvent.description = 'Lightning payment';
-            historyEvent.tags.push(['preimage', result.preimage]);
+            if(result.preimage) historyEvent.tags.push(['preimage', result.preimage]);
             historyEvent.amount = selection.quote.amount;
             historyEvent.fee = fee;
             historyEvent.publish(wallet.relaySet);
