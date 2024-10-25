@@ -127,54 +127,67 @@ export async function rollOverProofs(
     mint: string,
     wallet: NDKCashuWallet,
 ): Promise<ROLL_OVER_RESULT> {
-    const relaySet = wallet.relaySet;
+    try {
+        const relaySet = wallet.relaySet;
 
-    if (proofs.usedTokens.length > 0) {
-        console.trace("rolling over proofs for mint %s %d tokens", mint, proofs.usedTokens.length);
-
-        const deleteEvent = new NDKEvent(wallet.event.ndk);
-        deleteEvent.kind = NDKKind.EventDeletion;
-        deleteEvent.tags = [["k", NDKKind.CashuToken.toString()]];
-
-        proofs.usedTokens.forEach((token) => {
-            d(
-                "adding to delete a token that was seen on relay %s %o",
-                token.relay?.url,
-                token.onRelays.map((r) => r.url)
+        if (proofs.usedTokens.length > 0) {
+            console.trace(
+                "rolling over proofs for mint %s %d tokens",
+                mint,
+                proofs.usedTokens.length
             );
-            deleteEvent.tag(["e", token.id]);
-            if (token.relay) relaySet?.addRelay(token.relay);
-        });
 
-        await deleteEvent.sign();
-        d("delete event %o sending to %s", deleteEvent.rawEvent(), relaySet?.relayUrls);
-        deleteEvent.publish(relaySet);
-    }
-    wallet.addUsedTokens(proofs.usedTokens);
+            const deleteEvent = new NDKEvent(wallet.event.ndk);
+            deleteEvent.kind = NDKKind.EventDeletion;
+            deleteEvent.tags = [["k", NDKKind.CashuToken.toString()]];
 
-    const proofsToSave = proofs.movedProofs;
-    for (const change of changes) {
-        proofsToSave.push(change);
-    }
+            proofs.usedTokens.forEach((token) => {
+                d(
+                    "adding to delete a token that was seen on relay %s %o",
+                    token.relay?.url,
+                    token.onRelays.map((r) => r.url)
+                );
+                deleteEvent.tag(["e", token.id]);
+                if (token.relay) relaySet?.addRelay(token.relay);
+            });
 
-    let createdToken: NDKCashuToken | undefined;
+            await deleteEvent.sign();
+            d("delete event %o sending to %s", deleteEvent.rawEvent(), relaySet?.relayUrls);
+            deleteEvent.publish(relaySet);
+        }
+        wallet.addUsedTokens(proofs.usedTokens);
 
-    if (proofsToSave.length > 0) {
-        createdToken = new NDKCashuToken(wallet.ndk);
-        createdToken.proofs = proofsToSave;
-        createdToken.mint = mint;
-        createdToken.wallet = wallet;
-        await createdToken.sign();
-        d("saving %d new proofs", proofsToSave.length);
+        const proofsToSave = proofs.movedProofs;
+        for (const change of changes) {
+            proofsToSave.push(change);
+        }
 
-        wallet.addToken(createdToken);
+        let createdToken: NDKCashuToken | undefined;
 
-        await createdToken.publish(wallet.relaySet);
-        d("created new token event", createdToken.rawEvent());
-    }
+        if (proofsToSave.length > 0) {
+            createdToken = new NDKCashuToken(wallet.ndk);
+            createdToken.proofs = proofsToSave;
+            createdToken.mint = mint;
+            createdToken.wallet = wallet;
+            await createdToken.sign();
+            d("saving %d new proofs", proofsToSave.length);
 
-    return {
-        destroyedTokens: proofs.usedTokens,
-        createdToken,
+            wallet.addToken(createdToken);
+
+            await createdToken.publish(wallet.relaySet);
+            d("created new token event", createdToken.rawEvent());
+        }
+
+        wallet.emit("rollover_done", proofs.usedTokens, createdToken);
+
+        return {
+            destroyedTokens: proofs.usedTokens,
+            createdToken,
+        };
+    } catch (error) {
+        console.trace("An error occurred in rolling over proofs", error);
+        wallet.emit("rollover_failed", proofs.usedTokens, proofs.movedProofs, changes, mint);
+
+        throw error;
     }
 }

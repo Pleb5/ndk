@@ -24,10 +24,23 @@ import { decrypt } from "./decrypt.js";
 
 const d = createDebug("ndk-wallet:cashu:wallet");
 
+type NDKCashuWalletEvents = NDKWalletEvents & {
+    rollover_done: (
+        destroyedTokens: NDKCashuToken[],
+        createdToken: NDKCashuToken | undefined
+    ) => void;
+    rollover_failed: (
+        usedTokens: NDKCashuToken[],
+        movedProofs: Proof[],
+        changes: Proof[],
+        mint: string
+    ) => void;
+};
+
 /**
  * This class tracks state of a NIP-60 wallet
  */
-export class NDKCashuWallet extends EventEmitter<NDKWalletEvents> implements NDKWallet {
+export class NDKCashuWallet extends EventEmitter<NDKCashuWalletEvents> implements NDKWallet {
     readonly type = "nip-60";
 
     public tokens: NDKCashuToken[] = [];
