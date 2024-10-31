@@ -157,7 +157,7 @@ export async function rollOverProofs(
         }
         wallet.addUsedTokens(proofs.usedTokens);
 
-        const proofsToSave = proofs.movedProofs;
+        const proofsToSave = [...proofs.movedProofs];
         for (const change of changes) {
             proofsToSave.push(change);
         }
