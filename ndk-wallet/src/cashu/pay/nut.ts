@@ -127,7 +127,9 @@ async function payNutWithMintBalance(
                 selection.usedProofs,
                 e.message
             );
-            rollOverProofs(selection, [], mint, pay.wallet);
+            if (e?.message.match(/already spent/i)) {
+                rollOverProofs(selection, [], mint, pay.wallet);
+            }
             throw new Error("failed to pay with mint " + e?.message);
         }
     }
