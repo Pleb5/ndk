@@ -134,6 +134,11 @@ export class NDKCashuDeposit extends EventEmitter<{
             tokenEvent.proofs = ret.proofs;
             tokenEvent.mint = this.mint;
             tokenEvent.wallet = this.wallet;
+            tokenEvent.created_at = Math.floor(Date.now() / 1000);
+            const user = await this.wallet.event.ndk!.signer!.user();
+            tokenEvent.pubkey = user.pubkey;
+
+            this.wallet.emit("token_created", tokenEvent);
 
             await tokenEvent.publish(this.wallet.relaySet);
 
