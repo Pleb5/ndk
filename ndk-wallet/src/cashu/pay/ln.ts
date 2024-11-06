@@ -194,10 +194,12 @@ async function executePayment(
             return result.preimage;
         }
     } catch (e) {
+        console.trace(e);
         debug("Failed to pay with mint %s", e.message);
         if (e?.message.match(/already spent/i)) {
             debug("Proofs already spent, rolling over");
             rollOverProofs(selection, [], selection.mint, wallet, 'out', 'Failed Lightning payment');
+            wallet.emit('found_spent_token');
         }
         throw e;
     }

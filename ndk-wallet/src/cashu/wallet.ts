@@ -36,6 +36,7 @@ type NDKCashuWalletEvents = NDKWalletEvents & {
         mint: string
     ) => void;
     token_created: (token: NDKCashuToken) => void;
+    found_spent_token: () => void;
 };
 
 /**

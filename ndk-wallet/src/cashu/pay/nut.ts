@@ -121,6 +121,7 @@ async function payNutWithMintBalance(
 
             return { proofs: res.send, mint };
         } catch (e: any) {
+            console.trace(e);
             pay.debug(
                 "failed to pay with mint %s using proofs %o: %s",
                 mint,
@@ -129,6 +130,7 @@ async function payNutWithMintBalance(
             );
             if (e?.message.match(/already spent/i)) {
                 rollOverProofs(selection, [], mint, pay.wallet);
+                pay.wallet.emit('found_spent_token');
             }
             throw new Error("failed to pay with mint " + e?.message);
         }
