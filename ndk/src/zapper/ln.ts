@@ -11,6 +11,7 @@ export type NDKZapConfirmationLN = {
 
 export type NDKPaymentConfirmationLN = {
     preimage: string;
+    fee?: number
 };
 
 export type LNPaymentRequest = string;

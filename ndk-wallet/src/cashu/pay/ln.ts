@@ -1,5 +1,5 @@
 import { CashuWallet, CashuMint, Proof } from "@cashu/cashu-ts";
-import type { LnPaymentInfo } from "@nostr-dev-kit/ndk";
+import type { LnPaymentInfo, NDKPaymentConfirmationLN } from "@nostr-dev-kit/ndk";
 import type { NDKCashuPay } from "../pay";
 import type { TokenSelection } from "../proofs";
 import { rollOverProofs, chooseProofsForPr } from "../proofs";
@@ -7,13 +7,13 @@ import type { MintUrl } from "../mint/utils";
 import { NDKCashuWallet } from "../wallet";
 import { NDKWalletChange } from "../history";
 
-export async function payLn(this: NDKCashuPay, useMint?: MintUrl): Promise<string | undefined> {
+export async function payLn(this: NDKCashuPay, useMint?: MintUrl): Promise<NDKPaymentConfirmationLN | undefined> {
     const mintBalances = this.wallet.mintBalances;
     const amount = this.getAmount() / 1000; // convert msat to sat
     const data = this.info as LnPaymentInfo;
     if (!data.pr) throw new Error("missing pr");
 
-    return new Promise<string>((resolve, reject) => {
+    return new Promise<NDKPaymentConfirmationLN>((resolve, reject) => {
         const eligibleMints = getEligibleMints(mintBalances, amount, useMint, this.debug);
 
         if (eligibleMints.length === 0) {
@@ -69,7 +69,7 @@ async function attemptPaymentWithEligibleMints(
     amount: number,
     wallet: NDKCashuPay["wallet"],
     debug: NDKCashuPay["debug"],
-    resolve: (value: string) => void,
+    resolve: (value: NDKPaymentConfirmationLN) => void,
     reject: (reason: string) => void
 ): Promise<void> {
     const TIMEOUT = 10000; // 10 seconds timeout
@@ -112,10 +112,7 @@ async function attemptPaymentWithEligibleMints(
     for (const selection of selections) {
         try {
             const result = await executePayment(selection, pr, wallet, debug);
-            // NOTE: for some mints payment is executed properly but preimage is a blank string.
-            // So, temporarily I'm checking if result != null
-            // I noticed this issues in https://mint.minibits.cash/Bitcoin
-            if (result !== null) {
+            if (result) {
                 resolve(result);
                 return;
             }
@@ -150,7 +147,7 @@ async function executePayment(
     pr: string,
     wallet: NDKCashuWallet,
     debug: NDKCashuPay["debug"]
-): Promise<string | null> {
+): Promise<NDKPaymentConfirmationLN | null> {
     const _wallet = new CashuWallet(new CashuMint(selection.mint));
 
     if (!selection.quote) throw new Error("No quote provided")
@@ -191,7 +188,10 @@ async function executePayment(
             historyEvent.fee = fee;
             historyEvent.publish(wallet.relaySet);
 
-            return result.preimage;
+            return {
+                preimage: result.preimage || '',
+                fee
+            };
         }
     } catch (e) {
         console.trace(e);

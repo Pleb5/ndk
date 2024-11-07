@@ -325,9 +325,9 @@ export class NDKCashuWallet extends EventEmitter<NDKCashuWalletEvents> implement
         useMint?: MintUrl
     ): Promise<NDKPaymentConfirmationLN | undefined> {
         const pay = new NDKCashuPay(this, { pr });
-        const preimage = await pay.payLn(useMint);
-        if (!preimage) return;
-        return { preimage };
+        const result = await pay.payLn(useMint);
+        if (!result) return;
+        return { ...result };
     }
 
     /**
