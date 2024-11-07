@@ -35,7 +35,7 @@ type NDKCashuWalletEvents = NDKWalletEvents & {
         changes: Proof[],
         mint: string
     ) => void;
-    token_created: (token: NDKCashuToken) => void;
+    received_proofs: (proofs: Proof[], mint: MintUrl) => void;
     found_spent_token: () => void;
 };
 
@@ -389,15 +389,12 @@ export class NDKCashuWallet extends EventEmitter<NDKCashuWalletEvents> implement
      * @returns
      */
     async saveProofs(proofs: Proof[], mint: MintUrl, nutzap?: NDKEvent) {
+        this.emit("received_proofs", proofs, mint);
+
         const tokenEvent = new NDKCashuToken(this.event.ndk);
         tokenEvent.proofs = proofs;
         tokenEvent.mint = mint;
         tokenEvent.wallet = this;
-        tokenEvent.created_at = Math.floor(Date.now() / 1000);
-        const user = await this.event.ndk!.signer!.user();
-        tokenEvent.pubkey = user.pubkey;
-
-        this.emit("token_created", tokenEvent);
 
         await tokenEvent.sign();
 
