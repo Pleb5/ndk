@@ -137,6 +137,8 @@ export async function rollOverProofs(
                 proofs.usedTokens.length
             );
 
+            wallet.addUsedTokens(proofs.usedTokens);
+
             const deleteEvent = new NDKEvent(wallet.event.ndk);
             deleteEvent.kind = NDKKind.EventDeletion;
             deleteEvent.tags = [["k", NDKKind.CashuToken.toString()]];
@@ -155,7 +157,6 @@ export async function rollOverProofs(
             d("delete event %o sending to %s", deleteEvent.rawEvent(), relaySet?.relayUrls);
             deleteEvent.publish(relaySet);
         }
-        wallet.addUsedTokens(proofs.usedTokens);
 
         const proofsToSave = [...proofs.movedProofs];
         for (const change of changes) {
