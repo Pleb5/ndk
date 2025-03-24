@@ -43,6 +43,8 @@ export enum NDKKind {
     Report = 1984,
     Label = 1985,
 
+    Review = 1986,
+
     // NIP-90: Data Vending Machines
     // Text: 5000-5099
     DVMReqTextExtraction = 5000,
@@ -132,6 +134,12 @@ export enum NDKKind {
     ModularArticleItem = 30041,
     Wiki = 30818,
     Draft = 31234,
+
+    FreelanceService = 32765,
+    FreelanceOrder = 32766,
+    FreelanceJob = 32767,
+    FreelanceOffer = 32768,
+
     SubscriptionTier = 37001,
 
     EcashMintRecommendation = 38000,
