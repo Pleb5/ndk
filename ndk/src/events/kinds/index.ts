@@ -27,6 +27,9 @@ export enum NDKKind {
     // NIP-60 backup
     CashuWalletBackup = 375,
 
+    // Kind-scoped follow
+    KindScopedFollow = 967,
+
     // Nip 59 : Gift Wrap
     GiftWrap = 1059,
 
