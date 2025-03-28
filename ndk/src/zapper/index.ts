@@ -103,7 +103,7 @@ export type OnCompleteCb = (
     results: Map<NDKZapSplit, NDKPaymentConfirmation | Error | undefined>
 ) => void;
 
-interface NDKZapperOptions {
+export interface NDKZapperOptions {
     /**
      * Comment to include in the zap event
      */
@@ -385,6 +385,7 @@ class NDKZapper extends EventEmitter<{
             nutzap.comment = this.comment;
             nutzap.unit = "sat";
             nutzap.recipientPubkey = split.pubkey;
+            // TODO: MUST save Nutzaps before trying to Sign!
             await nutzap.sign(this.signer);
             nutzap.publish(relaySet);
 

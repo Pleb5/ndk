@@ -79,6 +79,7 @@ export class PaymentHandler {
             payment.mints,
             payment.p2pk
         );
+        // If Token was created with Mint Transfer, the Token Minted Needs to be saved!
         if (!createResult) {
             if (payment.allowIntramintFallback) {
                 createResult = await createToken(
