@@ -39,7 +39,7 @@ export type NDKEventStore<T extends NDKEvent> = Writable<ExtendedBaseType<T>[]> 
     changeFilters: (filters: NDKFilter[]) => void;
 };
 
-type NDKSubscribeOptions = NDKSubscriptionOptions & {
+export type NDKSubscribeOptions = NDKSubscriptionOptions & {
     /**
      * Whether the subscription should start when the
      * store is created. Defaults to true.
