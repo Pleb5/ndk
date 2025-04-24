@@ -60,6 +60,7 @@ export class NDKNip46Signer extends EventEmitter implements NDKSigner {
     public rpc: NDKNostrRpc;
     private debug: debug.Debugger;
     public relayUrls: string[] | undefined;
+    public permissions?: string | null;
     private subscription: NDKSubscription | undefined;
 
     /**
@@ -101,11 +102,13 @@ export class NDKNip46Signer extends EventEmitter implements NDKSigner {
         const userPubkey = bunkerUrl.searchParams.get("pubkey");
         const relayUrls = bunkerUrl.searchParams.getAll("relay");
         const secret = bunkerUrl.searchParams.get("secret");
+        const permissions = bunkerUrl.searchParams.get("permissions");
 
         this.bunkerPubkey = bunkerPubkey;
         this.userPubkey = userPubkey;
         this.relayUrls = relayUrls;
         this.secret = secret;
+        this.permissions = permissions;
     }
 
     private nip05Init(nip05: string) {
@@ -172,6 +175,8 @@ export class NDKNip46Signer extends EventEmitter implements NDKSigner {
             const connectParams = [this.userPubkey ?? ""];
 
             if (this.secret) connectParams.push(this.secret);
+
+            if (this.permissions) connectParams.push(this.permissions);
 
             if (!this.bunkerPubkey) throw new Error("Bunker pubkey not set");
 
