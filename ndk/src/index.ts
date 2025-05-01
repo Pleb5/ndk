@@ -34,6 +34,8 @@ export * from "./events/kinds/subscriptions/tier.js";
 export * from "./events/kinds/video.js";
 export * from "./events/kinds/wiki.js";
 
+export * from "./events/gift-wrapping.js";
+
 export * from "./events/wrap.js";
 
 export * from "./thread/index.js";

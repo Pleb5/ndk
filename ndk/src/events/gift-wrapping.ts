@@ -9,6 +9,8 @@ import { NDKEncryptionScheme } from "../types.js";
 export type GiftWrapParams = {
     scheme?: NDKEncryptionScheme;
     rumorKind?: number;
+    // False if message deniability is NOT desired
+    stripSig?: boolean;
     wrapTags?: string[][];
 };
 
@@ -34,7 +36,7 @@ export async function giftWrap(
     if (!signer) throw new Error("no signer");
     if (!signer.encryptionEnabled || !signer.encryptionEnabled(params.scheme))
         throw new Error("signer is not able to giftWrap");
-    const rumor = getRumorEvent(event, params?.rumorKind);
+    const rumor = getRumorEvent(event, params?.rumorKind, params?.stripSig || true);
     const seal = await getSealEvent(rumor, recipient, signer, params.scheme);
     const wrap = await getWrapEvent(seal, recipient, params);
     return new NDKEvent(event.ndk, wrap);
@@ -78,10 +80,13 @@ export async function giftUnwrap(
     }
 }
 
-function getRumorEvent(event: NDKEvent, kind?: number): NDKEvent {
+function getRumorEvent(event: NDKEvent, kind?: number, stripSig?: boolean): NDKEvent {
     let rumor = event.rawEvent();
     rumor.kind = kind || rumor.kind || NDKKind.PrivateDirectMessage;
-    rumor.sig = undefined;
+
+    if (stripSig) {
+        rumor.sig = undefined;
+    }
     rumor.id = getEventHash(rumor as any);
     return new NDKEvent(event.ndk, rumor);
 }
