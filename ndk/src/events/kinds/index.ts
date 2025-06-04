@@ -140,8 +140,8 @@ export enum NDKKind {
 
     FreelanceService = 32765,
     FreelanceOrder = 32766,
-    FreelanceTicket = 32767,
-    FreelanceOffer = 32768,
+    FreelanceJob = 32767,
+    FreelanceBid = 32768,
 
     SubscriptionTier = 37001,
 
